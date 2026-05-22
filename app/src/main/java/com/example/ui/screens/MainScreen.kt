@@ -61,12 +61,14 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
     val allRecords by viewModel.allRecords.collectAsStateWithLifecycle()
     val elapsedSeconds by viewModel.liveElapsedSeconds.collectAsStateWithLifecycle()
     val selectedCountryCode by viewModel.selectedCountryCode.collectAsStateWithLifecycle()
+    val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val currentTimezoneId = remember(selectedCountryCode) {
         com.example.data.CountrySetting.getByCode(selectedCountryCode).timezoneId
     }
 
     // Dialog & UI temporary states
     var showThemeDialog by remember { mutableStateOf(false) }
+    var settingsSection by remember { mutableStateOf("MAIN") }
     var showInTimeDialog by remember { mutableStateOf(false) }
     var showOutTimeDialog by remember { mutableStateOf(false) }
     var showReqHoursManualDialog by remember { mutableStateOf(false) }
@@ -111,7 +113,7 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = "CHẤM CÔNG & LỊCH",
+                            text = stringResource(R.string.app_name).uppercase(java.util.Locale.getDefault()),
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp,
                             style = MaterialTheme.typography.titleMedium,
@@ -120,12 +122,15 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                     },
                     actions = {
                         IconButton(
-                            onClick = { showThemeDialog = true },
+                            onClick = {
+                                settingsSection = "MAIN"
+                                showThemeDialog = true
+                            },
                             modifier = Modifier.testTag("theme_selector_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = "Đổi Background",
+                                contentDescription = stringResource(R.string.title_settings),
                                 tint = Color.White
                             )
                         }
@@ -230,125 +235,213 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
         )
     }
 
-    // Background Themes & Country Timezone dialog (Settings Panel)
+    // Background Themes, Language, & Country Timezone dialog (Settings Panel)
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = {
-                Text(
-                    text = "Cài đặt ứng dụng",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (settingsSection != "MAIN") {
+                        IconButton(
+                            onClick = { settingsSection = "MAIN" },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = stringResource(R.string.btn_back),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    Text(
+                        text = when (settingsSection) {
+                            "REGION" -> stringResource(R.string.settings_region_title)
+                            "LANGUAGE" -> stringResource(R.string.settings_language_title)
+                            "THEME" -> stringResource(R.string.settings_background_title)
+                            else -> stringResource(R.string.title_settings)
+                        },
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 380.dp)
+                        .animateContentSize()
+                        .heightIn(max = 400.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Múi giờ Quốc gia
-                    Text(
-                        text = stringResource(R.string.label_select_country),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = activeTheme.primaryColor,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    com.example.data.CountrySetting.ALL_COUNTRIES.forEach { country ->
-                        val isCountrySelected = selectedCountryCode == country.code
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isCountrySelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
-                                .clickable {
-                                    viewModel.selectCountry(country.code)
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(id = country.stringResId),
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isCountrySelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = if (isCountrySelected) FontWeight.Bold else FontWeight.Normal
+                    when (settingsSection) {
+                        "MAIN" -> {
+                            val countryName = stringResource(
+                                com.example.data.CountrySetting.getByCode(selectedCountryCode).stringResId
                             )
-                            if (isCountrySelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            SettingMenuItem(
+                                icon = Icons.Default.LocationOn,
+                                title = stringResource(R.string.settings_region_title),
+                                subtitle = countryName,
+                                onClick = { settingsSection = "REGION" },
+                                activeTheme = activeTheme
+                            )
+
+                            val langLabel = if (selectedLanguage == "en") "English" else "Tiếng Việt"
+                            SettingMenuItem(
+                                icon = Icons.Default.Info,
+                                title = stringResource(R.string.settings_language_title),
+                                subtitle = langLabel,
+                                onClick = { settingsSection = "LANGUAGE" },
+                                activeTheme = activeTheme
+                            )
+
+                            SettingMenuItem(
+                                icon = Icons.Default.Settings,
+                                title = stringResource(R.string.settings_background_title),
+                                subtitle = activeTheme.displayName,
+                                onClick = { settingsSection = "THEME" },
+                                activeTheme = activeTheme
+                            )
+                        }
+                        "REGION" -> {
+                            Text(
+                                text = stringResource(R.string.settings_region_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+
+                            com.example.data.CountrySetting.ALL_COUNTRIES.forEach { country ->
+                                val isCountrySelected = selectedCountryCode == country.code
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isCountrySelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
+                                        .clickable {
+                                            viewModel.selectCountry(country.code)
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(id = country.stringResId),
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isCountrySelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isCountrySelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isCountrySelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Giao diện
-                    Text(
-                        text = "Thay đổi giao diện",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = activeTheme.primaryColor,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    AppBackgroundTheme.values().forEach { themeItem ->
-                        val isSelected = activeTheme == themeItem
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
-                                .clickable {
-                                    viewModel.selectTheme(themeItem)
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Mini Color previews
-                            Row(
-                                modifier = Modifier.padding(end = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(themeItem.primaryColor)
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(themeItem.accentColor)
-                                )
-                            }
-
+                        "LANGUAGE" -> {
                             Text(
-                                text = themeItem.displayName,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                text = stringResource(R.string.label_select_language),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 4.dp)
                             )
 
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            listOf("vi" to R.string.language_vi, "en" to R.string.language_en).forEach { (langCode, stringRes) ->
+                                val isLangSelected = selectedLanguage == langCode
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isLangSelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
+                                        .clickable {
+                                            viewModel.selectLanguage(langCode)
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(id = stringRes),
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isLangSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isLangSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isLangSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        "THEME" -> {
+                            Text(
+                                text = stringResource(R.string.label_select_theme),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+
+                            AppBackgroundTheme.values().forEach { themeItem ->
+                                val isSelected = activeTheme == themeItem
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
+                                        .clickable {
+                                            viewModel.selectTheme(themeItem)
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Mini Color previews
+                                    Row(
+                                        modifier = Modifier.padding(end = 12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clip(CircleShape)
+                                                .background(themeItem.primaryColor)
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clip(CircleShape)
+                                                .background(themeItem.accentColor)
+                                        )
+                                    }
+
+                                    Text(
+                                        text = themeItem.displayName,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -356,9 +449,74 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Đóng")
+                    Text(stringResource(R.string.btn_close))
                 }
             }
+        )
+    }
+}
+
+// Sub-Component: Elegant hierarchical menu options
+@Composable
+fun SettingMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    activeTheme: AppBackgroundTheme
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(14.dp)
+            )
+            .background(Color.White.copy(alpha = 0.04f))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(activeTheme.primaryColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = activeTheme.primaryColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Navigate Next",
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -471,13 +629,13 @@ fun LiveStopwatchTrackerCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Home,
-                        contentDescription = "Hôm nay",
+                        contentDescription = stringResource(R.string.today_status),
                         tint = activeTheme.primaryColor,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Trạng Thái Hôm Nay",
+                        text = stringResource(R.string.today_status),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = Color.White
@@ -502,7 +660,7 @@ fun LiveStopwatchTrackerCard(
                                     .background(activeTheme.accentColor)
                             )
                             Text(
-                                text = "ĐANG CHẠY",
+                                text = stringResource(R.string.status_running),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = activeTheme.accentColor
@@ -511,7 +669,7 @@ fun LiveStopwatchTrackerCard(
                     }
                 } else {
                     Text(
-                        text = todayRecord?.checkOutTime?.let { "ĐÃ HOÀN THÀNH" } ?: "CHƯA VÀO CA",
+                        text = todayRecord?.checkOutTime?.let { stringResource(R.string.status_completed) } ?: stringResource(R.string.status_not_started),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (todayRecord?.checkOutTime != null) activeTheme.accentColor else Color.White.copy(alpha = 0.6f)
@@ -538,14 +696,14 @@ fun LiveStopwatchTrackerCard(
                         )
 
                         Text(
-                            text = "Hôm nay làm từ ${todayRecord.checkInTime} đến ${todayRecord.checkOutTime}",
+                            text = stringResource(R.string.worked_from_to, todayRecord.checkInTime ?: "", todayRecord.checkOutTime ?: ""),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = Color.White
                         )
 
                         Text(
-                            text = "Đã tích luỹ ${todayRecord.actualMinutesWorked} phút thực tế.",
+                            text = stringResource(R.string.worked_accumulated, todayRecord.actualMinutesWorked),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.7f)
                         )
@@ -556,12 +714,12 @@ fun LiveStopwatchTrackerCard(
                         ) {
                             Icon(imageVector = Icons.Default.Refresh, contentDescription = "Làm mới")
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Chấm công lại")
+                            Text(stringResource(R.string.btn_delete_today))
                         }
                     } else {
                         // Pure Start state
                         Text(
-                            text = "Bạn chưa bắt đầu tính giờ ca làm việc nào trong ngày hôm nay. Hãy thiết lập số giờ cần làm và bắt đầu.",
+                            text = stringResource(R.string.not_started_tip),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.8f),
@@ -579,7 +737,7 @@ fun LiveStopwatchTrackerCard(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Số giờ cần làm mục tiêu:",
+                                    text = stringResource(R.string.target_hours_label),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color.White.copy(alpha = 0.9f)
                                 )
@@ -593,7 +751,7 @@ fun LiveStopwatchTrackerCard(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = "${requiredHoursInput} giờ",
+                                        text = "${requiredHoursInput} " + stringResource(R.string.hours_suffix),
                                         fontWeight = FontWeight.Bold,
                                         color = activeTheme.primaryColor,
                                         fontSize = 14.sp
@@ -655,7 +813,7 @@ fun LiveStopwatchTrackerCard(
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play")
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "BẮT ĐẦU VÀO CA",
+                                text = stringResource(R.string.btn_start_shift),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
@@ -692,7 +850,7 @@ fun LiveStopwatchTrackerCard(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "THỜI GIAN LÀM LŨY KẾ",
+                        text = stringResource(R.string.live_progress_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.6f),
                         letterSpacing = 1.sp
@@ -727,12 +885,12 @@ fun LiveStopwatchTrackerCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Tiến độ: ${(percentProgress * 100).toInt()}%",
+                                text = (if (java.util.Locale.getDefault().language == "en") "Progress: " else "Tiến độ: ") + "${(percentProgress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
                             Text(
-                                text = "Mục tiêu: ${todayRecord.requiredHours} giờ",
+                                text = (if (java.util.Locale.getDefault().language == "en") "Target: " else "Mục tiêu: ") + "${todayRecord.requiredHours} " + stringResource(R.string.hours_suffix),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -749,7 +907,7 @@ fun LiveStopwatchTrackerCard(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Giờ Vào",
+                                text = stringResource(R.string.in_time_label),
                                 fontSize = 12.sp,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -768,7 +926,7 @@ fun LiveStopwatchTrackerCard(
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Giờ Ra Dự Kiến",
+                                text = stringResource(R.string.expected_out_label),
                                 fontSize = 12.sp,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -796,7 +954,7 @@ fun LiveStopwatchTrackerCard(
                         Icon(imageVector = Icons.Default.Check, contentDescription = "Check Out")
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "HOÀN THÀNH - RA CA",
+                            text = stringResource(R.string.btn_end_shift),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -896,7 +1054,7 @@ fun CalendarRibbon(
                         val monthNum = dParts.getOrNull(1) ?: ""
 
                         Text(
-                            text = if (isToday) "Nay" else "$dayNum/$monthNum",
+                            text = if (isToday) (if (java.util.Locale.getDefault().language == "en") "Today" else "Nay") else "$dayNum/$monthNum",
                             fontSize = 12.sp,
                             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) activeTheme.primaryColor else Color.White
@@ -973,12 +1131,12 @@ fun AttendanceDetailsEditorCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Chi tiết",
+                        contentDescription = stringResource(R.string.details_title),
                         tint = activeTheme.primaryColor
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Quản Lý Chi Tiết Ngày",
+                        text = stringResource(R.string.details_title),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = Color.White
@@ -1004,7 +1162,7 @@ fun AttendanceDetailsEditorCard(
                 color = activeTheme.primaryColor
             )
 
-            Divider(color = Color.White.copy(alpha = 0.1f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
             // Check-in and Check-out selections
             Row(
@@ -1022,7 +1180,7 @@ fun AttendanceDetailsEditorCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Giờ Vào",
+                        text = stringResource(R.string.detail_checkin_title),
                         fontSize = 11.sp,
                         color = Color.White.copy(alpha = 0.6f)
                     )
@@ -1035,7 +1193,7 @@ fun AttendanceDetailsEditorCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Chạm để chỉnh",
+                        text = stringResource(R.string.detail_tap_to_change),
                         fontSize = 10.sp,
                         color = activeTheme.primaryColor
                     )
@@ -1052,7 +1210,7 @@ fun AttendanceDetailsEditorCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Giờ Ra",
+                        text = stringResource(R.string.detail_checkout_title),
                         fontSize = 11.sp,
                         color = Color.White.copy(alpha = 0.6f)
                     )
@@ -1065,7 +1223,7 @@ fun AttendanceDetailsEditorCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Chạm để chỉnh",
+                        text = stringResource(R.string.detail_tap_to_change),
                         fontSize = 10.sp,
                         color = activeTheme.primaryColor
                     )
@@ -1080,7 +1238,7 @@ fun AttendanceDetailsEditorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Số giờ làm yêu cầu:",
+                        text = stringResource(R.string.detail_hours_required),
                         fontSize = 13.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
@@ -1094,7 +1252,7 @@ fun AttendanceDetailsEditorCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "${requiredHours} giờ",
+                            text = "${requiredHours} " + stringResource(R.string.hours_suffix),
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             fontSize = 14.sp
@@ -1123,7 +1281,11 @@ fun AttendanceDetailsEditorCard(
             Column(modifier = Modifier.fillMaxWidth()) {
                 val actHours = actualMinutes / 60
                 val actMins = actualMinutes % 60
-                val displayActual = String.format("%02d giờ %02d phút", actHours, actMins)
+                val displayActual = if (java.util.Locale.getDefault().language == "en") {
+                    String.format("%02d hrs %02d mins", actHours, actMins)
+                } else {
+                    String.format("%02d giờ %02d phút", actHours, actMins)
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1131,7 +1293,7 @@ fun AttendanceDetailsEditorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Thời gian thực tế đã làm:",
+                        text = stringResource(R.string.detail_actual_worked),
                         fontSize = 13.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
@@ -1176,7 +1338,7 @@ fun AttendanceDetailsEditorCard(
 
             if (showReqHoursManualDialog) {
                 CustomNumberInputDialog(
-                    title = "Nhập Số Giờ Làm Yêu Cầu",
+                    title = if (java.util.Locale.getDefault().language == "en") "Enter Required Target Hours" else "Nhập Số Giờ Làm Yêu Cầu",
                     initialValue = requiredHours,
                     onDismiss = { showReqHoursManualDialog = false },
                     onValueConfirmed = {
@@ -1201,7 +1363,7 @@ fun AttendanceDetailsEditorCard(
             OutlinedTextField(
                 value = notes,
                 onValueChange = onNotesChange,
-                label = { Text("Ghi chú ngày làm việc", color = Color.White.copy(alpha = 0.5f)) },
+                label = { Text(stringResource(R.string.detail_notes_label), color = Color.White.copy(alpha = 0.5f)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("notes_input_field"),
@@ -1235,7 +1397,7 @@ fun AttendanceDetailsEditorCard(
                 Icon(imageVector = Icons.Default.Check, contentDescription = "Save Progress")
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    "LƯU THÔNG TIN CHẤM CÔNG",
+                    text = stringResource(R.string.btn_detail_save_label),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )

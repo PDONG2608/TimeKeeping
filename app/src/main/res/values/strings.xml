@@ -1,7 +1,12 @@
 <resources>
     <string name="app_name">Chấm Công Lịch</string>
-    <string name="title_settings">Cài đặt múi giờ quốc gia</string>
+    <string name="title_settings">Cài đặt ứng dụng</string>
     <string name="label_select_country">Chọn Quốc gia / Vùng lãnh thổ</string>
+    <string name="label_select_language">Chọn ngôn ngữ hiển thị</string>
+    <string name="label_select_theme">Thay đổi giao diện nền</string>
+    <string name="btn_close">Đóng</string>
+    <string name="language_vi">Tiếng Việt (Vietnamese)</string>
+    <string name="language_en">English (English)</string>
     
     <string name="country_vietnam">Việt Nam (ICT - UTC+7)</string>
     <string name="country_usa">Mỹ (EST/EDT - UTC-5)</string>
@@ -12,4 +17,53 @@
     <string name="country_germany">Đức (CET/CEST - UTC+1)</string>
     <string name="country_france">Pháp (CET/CEST - UTC+1)</string>
     <string name="country_australia">Úc (AEST/AEDT - UTC+10)</string>
+
+    <string name="today_status">Trạng Thái Hôm Nay</string>
+    <string name="status_not_started">CHƯA VÀO CA</string>
+    <string name="status_running">ĐANG CHẠY</string>
+    <string name="status_completed">ĐÃ HOÀN THÀNH</string>
+    <string name="btn_start_shift">BẮT ĐẦU VÀO CA</string>
+    <string name="btn_end_shift">HOÀN THÀNH - RA CA</string>
+    <string name="worked_accumulated">Bạn đã tích luỹ %1$d phút thực tế trong ngày hôm nay.</string>
+    <string name="worked_from_to">Hôm nay làm từ %1$s đến %2$s</string>
+    <string name="btn_delete_today">Xóa dữ liệu ngày</string>
+    <string name="target_hours_label">Số giờ cần làm mục tiêu:</string>
+    <string name="hours_suffix">giờ</string>
+    <string name="minutes_suffix">phút</string>
+    <string name="not_started_tip">Bạn chưa bắt đầu tính giờ ca làm việc nào trong ngày hôm nay. Hãy thiết lập số giờ cần làm và bắt đầu.</string>
+    <string name="live_progress_label">TIẾN ĐỘ THỜI GIAN THỰC</string>
+    <string name="in_time_label">Giờ Vào</string>
+    <string name="expected_out_label">Giờ Ra Dự Kiến</string>
+
+    <string name="history_no_data">Không có dữ liệu chấm công cho ngày này.</string>
+    <string name="history_recorded">Dữ liệu chấm công ngày %1$s</string>
+    <string name="history_worked">Thực tế làm:</string>
+    <string name="history_target">Mục tiêu:</string>
+    <string name="history_edit_btn">Chỉnh sửa thủ công</string>
+    <string name="btn_save_changes">Lưu thay đổi</string>
+    <string name="history_notes_label">Ghi chú ngày:</string>
+    <string name="history_notes_hint">Nhập ghi chú cho ngày này...</string>
+    <string name="manual_hours_edit">Chỉnh sửa số giờ tối thiểu</string>
+    <string name="manual_minutes_edit">Chỉnh sửa số phút thực tế làm</string>
+    <string name="date_attendance_title">Lịch Trình Chấm Công</string>
+    <string name="toast_saved">Đã lưu thông tin chấm công ngày </string>
+    <string name="toast_deleted">Đã xoá dữ liệu ngày </string>
+    <string name="confirm_btn">Xác nhận</string>
+    <string name="cancel_btn">Hủy</string>
+    <string name="details_title">Quản Lý Chi Tiết Ngày</string>
+    <string name="detail_checkin_title">Giờ Vào</string>
+    <string name="detail_checkout_title">Giờ Ra</string>
+    <string name="detail_tap_to_change">Chạm để chỉnh</string>
+    <string name="detail_hours_required">Số giờ làm yêu cầu:</string>
+    <string name="detail_actual_worked">Thời gian thực tế đã làm:</string>
+    <string name="detail_notes_label">Ghi chú ngày làm việc</string>
+    <string name="btn_detail_save_label">LƯU THÔNG TIN CHẤM CÔNG</string>
+
+    <string name="settings_region_title">Quốc gia &amp; Múi giờ</string>
+    <string name="settings_language_title">Ngôn ngữ hiển thị</string>
+    <string name="settings_background_title">Giao diện hình nền</string>
+    <string name="settings_region_subtitle">Cấu hình múi giờ làm việc tương ứng</string>
+    <string name="settings_language_subtitle">Hiện tại: Tiếng Việt</string>
+    <string name="settings_background_subtitle">Thay đổi diện mạo với 5 màu sắc neon</string>
+    <string name="btn_back">Quay lại</string>
 </resources>

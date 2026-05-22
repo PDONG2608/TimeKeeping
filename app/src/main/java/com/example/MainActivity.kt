@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import com.example.data.db.AppDatabase
 import com.example.data.repository.TimeRecordRepositoryImpl
 import com.example.domain.usecase.*
@@ -48,9 +50,29 @@ class MainActivity : ComponentActivity() {
         
         enableEdgeToEdge()
         setContent {
+            val selectedLanguageState = viewModel.selectedLanguage.collectAsState()
             MyApplicationTheme {
-                MainScreen(viewModel = viewModel)
+                LocalizedApp(languageCode = selectedLanguageState.value) {
+                    MainScreen(viewModel = viewModel)
+                }
             }
         }
+    }
+}
+
+@Composable
+fun LocalizedApp(languageCode: String, content: @Composable () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val localizedContext = androidx.compose.runtime.remember(languageCode, context) {
+        val locale = java.util.Locale(languageCode)
+        java.util.Locale.setDefault(locale)
+        val config = android.content.res.Configuration(context.resources.configuration)
+        config.setLocale(locale)
+        context.createConfigurationContext(config)
+    }
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalContext provides localizedContext
+    ) {
+        content()
     }
 }
