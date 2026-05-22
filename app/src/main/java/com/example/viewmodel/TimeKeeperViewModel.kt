@@ -3,8 +3,8 @@ package com.example.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.data.TimeRecord
-import com.example.data.TimeRecordRepository
+import com.example.domain.model.TimeRecord
+import com.example.domain.usecase.TimeRecordUseCases
 import com.example.data.CountrySetting
 import com.example.ui.theme.AppBackgroundTheme
 import com.example.ui.theme.ThemePreferences
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class TimeKeeperViewModel(
-    private val repository: TimeRecordRepository,
+    private val useCases: TimeRecordUseCases,
     private val themePreferences: ThemePreferences
 ) : ViewModel() {
 
@@ -39,7 +39,7 @@ class TimeKeeperViewModel(
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
     // List of all history records
-    val allRecords: StateFlow<List<TimeRecord>> = repository.allRecords
+    val allRecords: StateFlow<List<TimeRecord>> = useCases.getAllRecords()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -48,7 +48,7 @@ class TimeKeeperViewModel(
 
     // Active record for the selected date
     val selectedRecord: StateFlow<TimeRecord?> = _selectedDate
-        .flatMapLatest { date -> repository.getRecordByDate(date) }
+        .flatMapLatest { date -> useCases.getRecordByDate(date) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -59,7 +59,7 @@ class TimeKeeperViewModel(
     val todayRecord: StateFlow<TimeRecord?> = _selectedCountryCode
         .flatMapLatest { code ->
             val tz = CountrySetting.getByCode(code).timezoneId
-            repository.getRecordByDate(TimeUtils.getCurrentDateString(tz))
+            useCases.getRecordByDate(TimeUtils.getCurrentDateString(tz))
         }
         .stateIn(
             scope = viewModelScope,
@@ -143,7 +143,7 @@ class TimeKeeperViewModel(
             val tz = currentTimezoneId
             val todayStr = TimeUtils.getCurrentDateString(tz)
             val currentTime = TimeUtils.getCurrentTimeFormatted(tz)
-            val existing = repository.getRecordByDateDirect(todayStr)
+            val existing = useCases.getRecordByDateDirect(todayStr)
 
             val updated = TimeRecord(
                 dateString = todayStr,
@@ -155,7 +155,7 @@ class TimeKeeperViewModel(
                 isTracking = true,
                 notes = existing?.notes ?: ""
             )
-            repository.insertRecord(updated)
+            useCases.saveRecord(updated)
             // Select today automatically
             _selectedDate.value = todayStr
         }
@@ -166,7 +166,7 @@ class TimeKeeperViewModel(
         viewModelScope.launch {
             val tz = currentTimezoneId
             val todayStr = TimeUtils.getCurrentDateString(tz)
-            val existing = repository.getRecordByDateDirect(todayStr) ?: return@launch
+            val existing = useCases.getRecordByDateDirect(todayStr) ?: return@launch
             if (!existing.isTracking || existing.checkInTimestamp == null) return@launch
 
             val checkoutTime = TimeUtils.getCurrentTimeFormatted(tz)
@@ -178,7 +178,7 @@ class TimeKeeperViewModel(
                 actualMinutesWorked = elapsedMinutes,
                 checkInTimestamp = null
             )
-            repository.insertRecord(updated)
+            useCases.saveRecord(updated)
         }
     }
 
@@ -192,7 +192,7 @@ class TimeKeeperViewModel(
         notes: String
     ) {
         viewModelScope.launch {
-            val existing = repository.getRecordByDateDirect(dateString)
+            val existing = useCases.getRecordByDateDirect(dateString)
             val updated = TimeRecord(
                 dateString = dateString,
                 checkInTime = checkIn?.trim()?.ifEmpty { null },
@@ -203,7 +203,7 @@ class TimeKeeperViewModel(
                 isTracking = existing?.isTracking ?: false,
                 notes = notes
             )
-            repository.insertRecord(updated)
+            useCases.saveRecord(updated)
         }
     }
 
@@ -211,12 +211,12 @@ class TimeKeeperViewModel(
     fun updateRequiredHoursForSelected(hours: Double) {
         val date = _selectedDate.value
         viewModelScope.launch {
-            val existing = repository.getRecordByDateDirect(date)
+            val existing = useCases.getRecordByDateDirect(date)
             val updated = existing?.copy(requiredHours = hours) ?: TimeRecord(
                 dateString = date,
                 requiredHours = hours
             )
-            repository.insertRecord(updated)
+            useCases.saveRecord(updated)
         }
     }
 
@@ -224,19 +224,19 @@ class TimeKeeperViewModel(
     fun deleteRecordOfSelected() {
         val date = _selectedDate.value
         viewModelScope.launch {
-            repository.deleteRecord(date)
+            useCases.deleteRecord(date)
         }
     }
 }
 
 class TimeKeeperViewModelFactory(
-    private val repository: TimeRecordRepository,
+    private val useCases: TimeRecordUseCases,
     private val themePreferences: ThemePreferences
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TimeKeeperViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TimeKeeperViewModel(repository, themePreferences) as T
+            return TimeKeeperViewModel(useCases, themePreferences) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
