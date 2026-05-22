@@ -61,6 +61,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Listen for 3-minute warning event
+        lifecycleScope.launch {
+            viewModel.warningEvent.collect {
+                showShiftWarningNotification(viewModel.selectedLanguage.value)
+            }
+        }
+
         enableEdgeToEdge()
         setContent {
             val selectedLanguageState = viewModel.selectedLanguage.collectAsState()
@@ -74,6 +81,9 @@ class MainActivity : ComponentActivity() {
 
     private fun createNotificationChannel() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+            // Shift completed channel
             val name = getString(R.string.notification_channel_name)
             val descriptionText = getString(R.string.notification_channel_desc)
             val importance = android.app.NotificationManager.IMPORTANCE_HIGH
@@ -83,8 +93,18 @@ class MainActivity : ComponentActivity() {
                 lightColor = android.graphics.Color.GREEN
                 enableVibration(true)
             }
-            val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             notificationManager.createNotificationChannel(channel)
+
+            // Shift warning channel (3 minutes left)
+            val warningName = getString(R.string.notification_warning_channel_name)
+            val warningDesc = getString(R.string.notification_warning_channel_desc)
+            val warningChannel = android.app.NotificationChannel("SHIFT_WARNING_CHANNEL", warningName, importance).apply {
+                description = warningDesc
+                enableLights(true)
+                lightColor = android.graphics.Color.YELLOW
+                enableVibration(true)
+            }
+            notificationManager.createNotificationChannel(warningChannel)
         }
     }
 
@@ -147,6 +167,53 @@ class MainActivity : ComponentActivity() {
         } else {
             try {
                 notificationManager.notify(1001, builder.build())
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun showShiftWarningNotification(langCode: String) {
+        val locale = java.util.Locale(langCode)
+        val config = android.content.res.Configuration(resources.configuration)
+        config.setLocale(locale)
+        val localizedContext = createConfigurationContext(config)
+
+        val title = localizedContext.getString(R.string.notification_warning_title)
+        val content = localizedContext.getString(R.string.notification_warning_content)
+
+        val intent = android.content.Intent(this, MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = androidx.core.app.NotificationCompat.Builder(this, "SHIFT_WARNING_CHANNEL")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
+
+        val notificationManager = androidx.core.app.NotificationManagerCompat.from(this)
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                try {
+                    notificationManager.notify(1002, builder.build())
+                } catch (_: SecurityException) {}
+            }
+        } else {
+            try {
+                notificationManager.notify(1002, builder.build())
             } catch (_: Exception) {}
         }
     }

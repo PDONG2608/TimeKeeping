@@ -78,7 +78,11 @@ class TimeKeeperViewModel(
     private val _targetReachedEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val targetReachedEvent = _targetReachedEvent.asSharedFlow()
 
+    private val _warningEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val warningEvent = _warningEvent.asSharedFlow()
+
     private var hasNotifiedTargetReached = false
+    private var hasNotifiedWarning = false
     private var tickerJob: Job? = null
 
     init {
@@ -97,14 +101,23 @@ class TimeKeeperViewModel(
     private fun startTicker(startTimestamp: Long) {
         tickerJob?.cancel()
 
-        // Initialize notified flag based on current progress at startup
+        // Initialize notified flags based on current progress at startup
         val record = todayRecord.value
         if (record != null) {
             val reqSeconds = record.requiredHours * 3600.0
             val initialElapsedSeconds = (System.currentTimeMillis() - startTimestamp) / 1000
             hasNotifiedTargetReached = initialElapsedSeconds >= reqSeconds
+            
+            // Initialized warning only if the entire target is greater than 3 minutes (180s)
+            val warningTime = reqSeconds - 180.0
+            hasNotifiedWarning = if (reqSeconds > 180.0) {
+                initialElapsedSeconds >= warningTime
+            } else {
+                false
+            }
         } else {
             hasNotifiedTargetReached = false
+            hasNotifiedWarning = false
         }
 
         tickerJob = viewModelScope.launch {
@@ -116,6 +129,18 @@ class TimeKeeperViewModel(
                 val currRecord = todayRecord.value
                 if (currRecord != null && currRecord.isTracking) {
                     val reqSeconds = currRecord.requiredHours * 3600.0
+                    
+                    // Emit 3-minute warning if we have crossed the threshold, target is > 180s, and haven't notified
+                    if (reqSeconds > 180.0) {
+                        val warningTime = reqSeconds - 180.0
+                        if (elapsedSecs < warningTime) {
+                            hasNotifiedWarning = false
+                        } else if (elapsedSecs >= warningTime && elapsedSecs < reqSeconds && !hasNotifiedWarning) {
+                            hasNotifiedWarning = true
+                            _warningEvent.emit(Unit)
+                        }
+                    }
+
                     if (elapsedSecs < reqSeconds) {
                         hasNotifiedTargetReached = false
                     } else if (elapsedSecs >= reqSeconds && !hasNotifiedTargetReached) {
@@ -134,6 +159,7 @@ class TimeKeeperViewModel(
         tickerJob = null
         _liveElapsedSeconds.value = 0
         hasNotifiedTargetReached = false
+        hasNotifiedWarning = false
     }
 
     // Change background theme

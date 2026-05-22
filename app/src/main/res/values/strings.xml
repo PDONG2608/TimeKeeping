@@ -70,4 +70,32 @@
     <string name="notification_channel_desc">Nhắc nhở khi tích lũy đủ giờ làm mục tiêu</string>
     <string name="notification_title">Hết giờ làm việc!</string>
     <string name="notification_content">Chúc mừng! Bạn đã hoàn thành đủ số giờ làm mục tiêu hôm nay.</string>
+    
+    <string name="input_target_hours_title">Nhập Số Giờ Làm Mục Tiêu</string>
+    <string name="input_required_hours_title">Nhập Số Giờ Làm Yêu Cầu</string>
+    <string name="indicator_progress">Tiến độ: %1$d%%</string>
+    <string name="indicator_target">Mục tiêu: %1$s giờ</string>
+    <string name="today_label">Nay</string>
+    <string name="input_hours_placeholder_label">Số giờ (ví dụ: 8 hoặc 8.5)</string>
+    <string name="input_error_invalid_hours">Vui lòng nhập số giờ hợp lệ từ 0.5 đến 24</string>
+    <string name="input_duration_title">Nhập Thời Gian Đã Làm</string>
+    <string name="input_hours_label">Giờ làm</string>
+    <string name="input_minutes_label">Phút</string>
+    <string name="input_error_hours_limit">Số giờ làm từ 0 đến 24</string>
+    <string name="input_error_minutes_limit">Số phút từ 0 đến 59</string>
+    <string name="input_error_time_zero">Thời gian làm việc phải lớn hơn 0</string>
+    <string name="content_desc_edit">Nhập tay</string>
+    <string name="content_desc_refresh">Làm mới</string>
+    <string name="clock_updating">Đang cập nhật...</string>
+
+    <string name="notification_warning_title">Sắp hết giờ làm việc!</string>
+    <string name="notification_warning_content">Chỉ còn 3 phút nữa là hoàn thành mục tiêu ngày hôm nay. Hãy chuẩn bị!</string>
+    <string name="notification_warning_channel_name">Cảnh báo ca làm</string>
+    <string name="notification_warning_channel_desc">Nhắc nhở trước khi kết thúc ca làm</string>
+
+    <string name="ot_label">Tăng ca (OT):</string>
+    <string name="ot_value_minutes">%1$d phút</string>
+    <string name="ot_value_hours">%1$.1f giờ</string>
+    <string name="ot_congrats">BẠN ĐANG TÍNH GIỜ OT</string>
+    <string name="actual_worked_format">%1$02d giờ %2$02d phút</string>
 </resources>

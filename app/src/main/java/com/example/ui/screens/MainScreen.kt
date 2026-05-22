@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.TimeRecord
 import com.example.R
+import com.example.ui.components.CelebrationLayer
 import com.example.ui.components.BackgroundWrapper
 import com.example.ui.components.CustomTimePickerDialog
 import com.example.ui.theme.AppBackgroundTheme
@@ -107,7 +108,26 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
         }
     }
 
+    val showCelebration = remember(todayRecord, elapsedSeconds) {
+        val record = todayRecord
+        if (record != null) {
+            val reqMins = record.requiredHours * 60.0
+            if (record.isTracking) {
+                (elapsedSeconds / 60.0) >= reqMins
+            } else {
+                record.actualMinutesWorked >= reqMins && record.checkOutTime != null
+            }
+        } else {
+            false
+        }
+    }
+
     BackgroundWrapper(theme = activeTheme) {
+        CelebrationLayer(
+            active = showCelebration,
+            primaryColor = activeTheme.primaryColor,
+            accentColor = activeTheme.accentColor
+        )
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -196,11 +216,13 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                             actualMinutes = manualActualMinutes,
                             notes = manualNotes
                         )
-                        Toast.makeText(context, "Đã lưu thông tin chấm công ngày " + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId), Toast.LENGTH_SHORT).show()
+                        val saveMsg = context.getString(R.string.toast_saved) + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId)
+                        Toast.makeText(context, saveMsg, Toast.LENGTH_SHORT).show()
                     },
                     onDelete = {
                         viewModel.deleteRecordOfSelected()
-                        Toast.makeText(context, "Đã xoá dữ liệu ngày " + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId), Toast.LENGTH_SHORT).show()
+                        val delMsg = context.getString(R.string.toast_deleted) + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId)
+                        Toast.makeText(context, delMsg, Toast.LENGTH_SHORT).show()
                     },
                     onPresetRequiredHoursClick = { manualRequiredHours = it },
                     activeTheme = activeTheme,
@@ -821,7 +843,7 @@ fun LiveStopwatchTrackerCard(
 
                         if (showTodayReqHoursManualDialog) {
                             CustomNumberInputDialog(
-                                title = "Nhập Số Giờ Làm Mục Tiêu",
+                                title = stringResource(R.string.input_target_hours_title),
                                 initialValue = requiredHoursInput,
                                 onDismiss = { showTodayReqHoursManualDialog = false },
                                 onValueConfirmed = {
@@ -885,15 +907,62 @@ fun LiveStopwatchTrackerCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = (if (java.util.Locale.getDefault().language == "en") "Progress: " else "Tiến độ: ") + "${(percentProgress * 100).toInt()}%",
+                                text = stringResource(R.string.indicator_progress, (percentProgress * 100).toInt()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
                             Text(
-                                text = (if (java.util.Locale.getDefault().language == "en") "Target: " else "Mục tiêu: ") + "${todayRecord.requiredHours} " + stringResource(R.string.hours_suffix),
+                                text = stringResource(R.string.indicator_target, todayRecord.requiredHours.toString()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
+                        }
+                    }
+
+                    // Active Overtime (OT) Display
+                    val reqSeconds = (todayRecord.requiredHours * 3600).toLong()
+                    if (elapsedSeconds > reqSeconds) {
+                        val otSeconds = (elapsedSeconds - reqSeconds).coerceAtLeast(0L)
+                        val otMins = (otSeconds / 60).toInt()
+                        val otDisplay = if (otMins >= 60) {
+                            stringResource(R.string.ot_value_hours, otMins / 60.0)
+                        } else {
+                            stringResource(R.string.ot_value_minutes, otMins)
+                        }
+
+                        Surface(
+                            color = activeTheme.accentColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, activeTheme.accentColor.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "OT Badge",
+                                        tint = activeTheme.accentColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.ot_congrats),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = activeTheme.accentColor
+                                    )
+                                }
+                                Text(
+                                    text = "+$otDisplay",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = activeTheme.accentColor
+                                )
+                            }
                         }
                     }
 
@@ -994,7 +1063,7 @@ fun CalendarRibbon(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Lịch Trình Chấm Công",
+            text = stringResource(R.string.date_attendance_title),
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = Color.White,
@@ -1054,7 +1123,7 @@ fun CalendarRibbon(
                         val monthNum = dParts.getOrNull(1) ?: ""
 
                         Text(
-                            text = if (isToday) (if (java.util.Locale.getDefault().language == "en") "Today" else "Nay") else "$dayNum/$monthNum",
+                            text = if (isToday) stringResource(R.string.today_label) else "$dayNum/$monthNum",
                             fontSize = 12.sp,
                             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) activeTheme.primaryColor else Color.White
@@ -1281,11 +1350,7 @@ fun AttendanceDetailsEditorCard(
             Column(modifier = Modifier.fillMaxWidth()) {
                 val actHours = actualMinutes / 60
                 val actMins = actualMinutes % 60
-                val displayActual = if (java.util.Locale.getDefault().language == "en") {
-                    String.format("%02d hrs %02d mins", actHours, actMins)
-                } else {
-                    String.format("%02d giờ %02d phút", actHours, actMins)
-                }
+                val displayActual = stringResource(R.string.actual_worked_format, actHours, actMins)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1334,11 +1399,44 @@ fun AttendanceDetailsEditorCard(
                         thumbColor = activeTheme.accentColor
                     )
                 )
+
+                // Render Overtime helper banner for current editor selection
+                val targetMinutes = (requiredHours * 60).toInt()
+                if (actualMinutes > targetMinutes) {
+                    val otMinutes = actualMinutes - targetMinutes
+                    val otDisplay = if (otMinutes >= 60) {
+                        stringResource(R.string.ot_value_hours, otMinutes / 60.0)
+                    } else {
+                        stringResource(R.string.ot_value_minutes, otMinutes)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .background(activeTheme.accentColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.ot_label),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = activeTheme.accentColor
+                        )
+                        Text(
+                            text = "+$otDisplay",
+                            fontWeight = FontWeight.ExtraBold,
+                            color = activeTheme.accentColor,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
 
             if (showReqHoursManualDialog) {
                 CustomNumberInputDialog(
-                    title = if (java.util.Locale.getDefault().language == "en") "Enter Required Target Hours" else "Nhập Số Giờ Làm Yêu Cầu",
+                    title = stringResource(R.string.input_required_hours_title),
                     initialValue = requiredHours,
                     onDismiss = { showReqHoursManualDialog = false },
                     onValueConfirmed = {
@@ -1415,6 +1513,7 @@ fun CustomNumberInputDialog(
 ) {
     var textValue by remember { mutableStateOf(initialValue.toString()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val invalidHoursError = stringResource(R.string.input_error_invalid_hours)
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1447,7 +1546,7 @@ fun CustomNumberInputDialog(
                         textValue = it
                         errorMessage = null
                     },
-                    label = { Text("Số giờ (ví dụ: 8 hoặc 8.5)") },
+                    label = { Text(stringResource(R.string.input_hours_placeholder_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1467,7 +1566,7 @@ fun CustomNumberInputDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("HỦY")
+                        Text(stringResource(R.string.cancel_btn).uppercase())
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -1478,13 +1577,13 @@ fun CustomNumberInputDialog(
                         onClick = {
                             val doubleVal = textValue.toDoubleOrNull()
                             if (doubleVal == null || doubleVal <= 0 || doubleVal > 24) {
-                                errorMessage = "Vui lòng nhập số giờ hợp lệ từ 0.5 đến 24"
+                                errorMessage = invalidHoursError
                             } else {
                                 onValueConfirmed(doubleVal)
                             }
                         }
                     ) {
-                        Text("XÁC NHẬN")
+                        Text(stringResource(R.string.confirm_btn).uppercase())
                     }
                 }
             }
@@ -1505,6 +1604,10 @@ fun CustomDurationInputDialog(
     var minsStr by remember { mutableStateOf(initialRemainingMins.toString()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val errorHours = stringResource(R.string.input_error_hours_limit)
+    val errorMins = stringResource(R.string.input_error_minutes_limit)
+    val errorZero = stringResource(R.string.input_error_time_zero)
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             colors = CardDefaults.cardColors(
@@ -1524,7 +1627,7 @@ fun CustomDurationInputDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Nhập Thời Gian Đã Làm",
+                    text = stringResource(R.string.input_duration_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1538,7 +1641,7 @@ fun CustomDurationInputDialog(
                     OutlinedTextField(
                         value = hoursStr,
                         onValueChange = { if (it.all { c -> c.isDigit() }) hoursStr = it },
-                        label = { Text("Giờ làm") },
+                        label = { Text(stringResource(R.string.input_hours_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                         singleLine = true
@@ -1547,7 +1650,7 @@ fun CustomDurationInputDialog(
                     OutlinedTextField(
                         value = minsStr,
                         onValueChange = { if (it.all { c -> c.isDigit() }) minsStr = it },
-                        label = { Text("Phút") },
+                        label = { Text(stringResource(R.string.input_minutes_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                         singleLine = true
@@ -1568,7 +1671,7 @@ fun CustomDurationInputDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("HỦY")
+                        Text(stringResource(R.string.cancel_btn).uppercase())
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -1580,22 +1683,22 @@ fun CustomDurationInputDialog(
                             val hrs = hoursStr.toIntOrNull() ?: 0
                             val mins = minsStr.toIntOrNull() ?: 0
                             if (hrs < 0 || hrs > 24) {
-                                errorMessage = "Số giờ làm từ 0 đến 24"
+                                errorMessage = errorHours
                                 return@Button
                             }
                             if (mins < 0 || mins > 59) {
-                                errorMessage = "Số phút từ 0 đến 59"
+                                errorMessage = errorMins
                                 return@Button
                             }
                             val totalMins = hrs * 60 + mins
                             if (totalMins <= 0 && hrs == 0 && mins == 0) {
-                                errorMessage = "Thời gian làm việc phải lớn hơn 0"
+                                errorMessage = errorZero
                                 return@Button
                             }
                             onDurationConfirmed(totalMins)
                         }
                     ) {
-                        Text("XÁC NHẬN")
+                        Text(stringResource(R.string.confirm_btn).uppercase())
                     }
                 }
             }
