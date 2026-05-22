@@ -87,4 +87,12 @@ class ThemePreferences(context: Context) {
     fun setSelectedCountryCode(code: String) {
         prefs.edit().putString("selected_country_code", code).apply()
     }
+
+    fun getSelectedLanguage(): String {
+        return prefs.getString("selected_language", "vi") ?: "vi"
+    }
+
+    fun setSelectedLanguage(code: String) {
+        prefs.edit().putString("selected_language", code).apply()
+    }
 }

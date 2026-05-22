@@ -66,4 +66,8 @@
     <string name="settings_language_subtitle">Current: English</string>
     <string name="settings_background_subtitle">Tailor the look with 5 neon options</string>
     <string name="btn_back">Back</string>
+    <string name="notification_channel_name">Shift Alerts</string>
+    <string name="notification_channel_desc">Reminders when target working hours are achieved</string>
+    <string name="notification_title">Shift Completed!</string>
+    <string name="notification_content">Congratulations! You have successfully reached your target working hours today.</string>
 </resources>

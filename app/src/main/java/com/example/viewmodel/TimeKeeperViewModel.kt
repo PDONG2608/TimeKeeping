@@ -23,6 +23,10 @@ class TimeKeeperViewModel(
     private val _currentTheme = MutableStateFlow(themePreferences.getBackgroundTheme())
     val currentTheme: StateFlow<AppBackgroundTheme> = _currentTheme.asStateFlow()
 
+    // Language state
+    private val _selectedLanguage = MutableStateFlow(themePreferences.getSelectedLanguage())
+    val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
+
     // Country/Timezone state
     private val _selectedCountryCode = MutableStateFlow(themePreferences.getSelectedCountryCode())
     val selectedCountryCode: StateFlow<String> = _selectedCountryCode.asStateFlow()
@@ -71,6 +75,10 @@ class TimeKeeperViewModel(
     private val _liveElapsedSeconds = MutableStateFlow(0L)
     val liveElapsedSeconds: StateFlow<Long> = _liveElapsedSeconds.asStateFlow()
 
+    private val _targetReachedEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val targetReachedEvent = _targetReachedEvent.asSharedFlow()
+
+    private var hasNotifiedTargetReached = false
     private var tickerJob: Job? = null
 
     init {
@@ -88,10 +96,34 @@ class TimeKeeperViewModel(
 
     private fun startTicker(startTimestamp: Long) {
         tickerJob?.cancel()
+
+        // Initialize notified flag based on current progress at startup
+        val record = todayRecord.value
+        if (record != null) {
+            val reqSeconds = record.requiredHours * 3600.0
+            val initialElapsedSeconds = (System.currentTimeMillis() - startTimestamp) / 1000
+            hasNotifiedTargetReached = initialElapsedSeconds >= reqSeconds
+        } else {
+            hasNotifiedTargetReached = false
+        }
+
         tickerJob = viewModelScope.launch {
             while (true) {
                 val elapsedMs = System.currentTimeMillis() - startTimestamp
-                _liveElapsedSeconds.value = (elapsedMs / 1000).coerceAtLeast(0)
+                val elapsedSecs = (elapsedMs / 1000).coerceAtLeast(0)
+                _liveElapsedSeconds.value = elapsedSecs
+
+                val currRecord = todayRecord.value
+                if (currRecord != null && currRecord.isTracking) {
+                    val reqSeconds = currRecord.requiredHours * 3600.0
+                    if (elapsedSecs < reqSeconds) {
+                        hasNotifiedTargetReached = false
+                    } else if (elapsedSecs >= reqSeconds && !hasNotifiedTargetReached) {
+                        hasNotifiedTargetReached = true
+                        _targetReachedEvent.emit(Unit)
+                    }
+                }
+
                 delay(1000)
             }
         }
@@ -101,12 +133,19 @@ class TimeKeeperViewModel(
         tickerJob?.cancel()
         tickerJob = null
         _liveElapsedSeconds.value = 0
+        hasNotifiedTargetReached = false
     }
 
     // Change background theme
     fun selectTheme(theme: AppBackgroundTheme) {
         themePreferences.setBackgroundTheme(theme)
         _currentTheme.value = theme
+    }
+
+    // Change display language
+    fun selectLanguage(langCode: String) {
+        themePreferences.setSelectedLanguage(langCode)
+        _selectedLanguage.value = langCode
     }
 
     // Change selected country setting

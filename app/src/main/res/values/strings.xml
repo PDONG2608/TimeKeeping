@@ -66,4 +66,8 @@
     <string name="settings_language_subtitle">Hiện tại: Tiếng Việt</string>
     <string name="settings_background_subtitle">Thay đổi diện mạo với 5 màu sắc neon</string>
     <string name="btn_back">Quay lại</string>
+    <string name="notification_channel_name">Thông báo ca làm</string>
+    <string name="notification_channel_desc">Nhắc nhở khi tích lũy đủ giờ làm mục tiêu</string>
+    <string name="notification_title">Hết giờ làm việc!</string>
+    <string name="notification_content">Chúc mừng! Bạn đã hoàn thành đủ số giờ làm mục tiêu hôm nay.</string>
 </resources>
