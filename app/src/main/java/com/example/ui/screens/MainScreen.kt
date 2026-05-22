@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.TimeRecord
+import com.example.R
 import com.example.ui.components.BackgroundWrapper
 import com.example.ui.components.CustomTimePickerDialog
 import com.example.ui.theme.AppBackgroundTheme
@@ -41,6 +43,9 @@ import com.example.util.TimeUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.window.Dialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,11 +60,18 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
     val todayRecord by viewModel.todayRecord.collectAsStateWithLifecycle()
     val allRecords by viewModel.allRecords.collectAsStateWithLifecycle()
     val elapsedSeconds by viewModel.liveElapsedSeconds.collectAsStateWithLifecycle()
+    val selectedCountryCode by viewModel.selectedCountryCode.collectAsStateWithLifecycle()
+    val currentTimezoneId = remember(selectedCountryCode) {
+        com.example.data.CountrySetting.getByCode(selectedCountryCode).timezoneId
+    }
 
     // Dialog & UI temporary states
     var showThemeDialog by remember { mutableStateOf(false) }
     var showInTimeDialog by remember { mutableStateOf(false) }
     var showOutTimeDialog by remember { mutableStateOf(false) }
+    var showReqHoursManualDialog by remember { mutableStateOf(false) }
+    var showActDurationManualDialog by remember { mutableStateOf(false) }
+    var isEditingTodayReqSettings by remember { mutableStateOf(false) }
 
     // Backup Editor States for the selected date manual editing
     var manualInTime by remember { mutableStateOf<String?>(null) }
@@ -136,7 +148,7 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
             ) {
 
                 // SECTION 1: Current Ticking Dynamic Clock Header Card
-                LiveClockCard(activeTheme)
+                LiveClockCard(activeTheme, currentTimezoneId)
 
                 // SECTION 2: Live Tracking Stopwatch Tracker (Đếm giờ chấm công)
                 LiveStopwatchTrackerCard(
@@ -153,7 +165,8 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                     selectedDate = selectedDate,
                     allRecords = allRecords,
                     onDateSelected = { dateStr -> viewModel.selectDate(dateStr) },
-                    activeTheme = activeTheme
+                    activeTheme = activeTheme,
+                    currentTimezoneId = currentTimezoneId
                 )
 
                 // SECTION 4: Historic & Custom Attendance Details Editor (Quản lý lịch & giờ giấc)
@@ -178,14 +191,15 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                             actualMinutes = manualActualMinutes,
                             notes = manualNotes
                         )
-                        Toast.makeText(context, "Đã lưu thông tin chấm công ngày " + TimeUtils.formatShortMonthDay(selectedDate), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Đã lưu thông tin chấm công ngày " + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId), Toast.LENGTH_SHORT).show()
                     },
                     onDelete = {
                         viewModel.deleteRecordOfSelected()
-                        Toast.makeText(context, "Đã xoá dữ liệu ngày " + TimeUtils.formatShortMonthDay(selectedDate), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Đã xoá dữ liệu ngày " + TimeUtils.formatShortMonthDay(selectedDate, currentTimezoneId), Toast.LENGTH_SHORT).show()
                     },
                     onPresetRequiredHoursClick = { manualRequiredHours = it },
-                    activeTheme = activeTheme
+                    activeTheme = activeTheme,
+                    currentTimezoneId = currentTimezoneId
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -216,32 +230,87 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
         )
     }
 
-    // Background Themes dialog
+    // Background Themes & Country Timezone dialog (Settings Panel)
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = {
                 Text(
-                    text = "Thay đổi giao diện",
+                    text = "Cài đặt ứng dụng",
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
+                    // Múi giờ Quốc gia
+                    Text(
+                        text = stringResource(R.string.label_select_country),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = activeTheme.primaryColor,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    com.example.data.CountrySetting.ALL_COUNTRIES.forEach { country ->
+                        val isCountrySelected = selectedCountryCode == country.code
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isCountrySelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
+                                .clickable {
+                                    viewModel.selectCountry(country.code)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(id = country.stringResId),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isCountrySelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isCountrySelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (isCountrySelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Giao diện
+                    Text(
+                        text = "Thay đổi giao diện",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = activeTheme.primaryColor,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
                     AppBackgroundTheme.values().forEach { themeItem ->
                         val isSelected = activeTheme == themeItem
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.05f))
                                 .clickable {
                                     viewModel.selectTheme(themeItem)
-                                    showThemeDialog = false
                                 }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -268,15 +337,17 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
                             Text(
                                 text = themeItem.displayName,
                                 modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
 
                             if (isSelected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -294,13 +365,15 @@ fun MainScreen(viewModel: TimeKeeperViewModel) {
 
 // Sub-Component: Dynamic local clock display
 @Composable
-fun LiveClockCard(activeTheme: AppBackgroundTheme) {
+fun LiveClockCard(activeTheme: AppBackgroundTheme, timezoneId: String) {
     var currentTimeStr by remember { mutableStateOf("") }
     var currentDateStr by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(timezoneId) {
         val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        timeFormat.timeZone = TimeZone.getTimeZone(timezoneId)
         val dateFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("vi", "VN"))
+        dateFormat.timeZone = TimeZone.getTimeZone(timezoneId)
         while (true) {
             val now = Date()
             currentTimeStr = timeFormat.format(now)
@@ -361,6 +434,7 @@ fun LiveStopwatchTrackerCard(
 ) {
     val isTracking = todayRecord?.isTracking == true
     var requiredHoursInput by remember { mutableStateOf(8.0) }
+    var showTodayReqHoursManualDialog by remember { mutableStateOf(false) }
 
     val outTimeCalculated = remember(todayRecord?.checkInTime, todayRecord?.requiredHours) {
         val checkIn = todayRecord?.checkInTime ?: ""
@@ -509,11 +583,28 @@ fun LiveStopwatchTrackerCard(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color.White.copy(alpha = 0.9f)
                                 )
-                                Text(
-                                    text = "${requiredHoursInput} giờ",
-                                    fontWeight = FontWeight.Bold,
-                                    color = activeTheme.primaryColor
-                                )
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.05f))
+                                        .clickable { showTodayReqHoursManualDialog = true }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "${requiredHoursInput} giờ",
+                                        fontWeight = FontWeight.Bold,
+                                        color = activeTheme.primaryColor,
+                                        fontSize = 14.sp
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Nhập tay",
+                                        tint = activeTheme.primaryColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
 
                             Slider(
@@ -567,6 +658,18 @@ fun LiveStopwatchTrackerCard(
                                 "BẮT ĐẦU VÀO CA",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
+                            )
+                        }
+
+                        if (showTodayReqHoursManualDialog) {
+                            CustomNumberInputDialog(
+                                title = "Nhập Số Giờ Làm Mục Tiêu",
+                                initialValue = requiredHoursInput,
+                                onDismiss = { showTodayReqHoursManualDialog = false },
+                                onValueConfirmed = {
+                                    requiredHoursInput = it
+                                    showTodayReqHoursManualDialog = false
+                                }
                             )
                         }
                     }
@@ -711,14 +814,15 @@ fun CalendarRibbon(
     selectedDate: String,
     allRecords: List<TimeRecord>,
     onDateSelected: (String) -> Unit,
-    activeTheme: AppBackgroundTheme
+    activeTheme: AppBackgroundTheme,
+    currentTimezoneId: String
 ) {
     val listState = rememberLazyListState()
-    val rawDays = remember { TimeUtils.getCalendarDaysList() }
-    val todayStr = remember { TimeUtils.getCurrentDateString() }
+    val rawDays = remember(currentTimezoneId) { TimeUtils.getCalendarDaysList(currentTimezoneId) }
+    val todayStr = remember(currentTimezoneId) { TimeUtils.getCurrentDateString(currentTimezoneId) }
 
-    // Scroll to today's date upon launch
-    LaunchedEffect(Unit) {
+    // Scroll to today's date upon launch and today selection changes
+    LaunchedEffect(todayStr) {
         val todayIndex = rawDays.indexOf(todayStr)
         if (todayIndex >= 0) {
             // Scroll to center today
@@ -836,12 +940,15 @@ fun AttendanceDetailsEditorCard(
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onPresetRequiredHoursClick: (Double) -> Unit,
-    activeTheme: AppBackgroundTheme
+    activeTheme: AppBackgroundTheme,
+    currentTimezoneId: String
 ) {
-    val dateLabel = remember(dateString) { TimeUtils.getFriendlyDate(dateString) }
+    val dateLabel = remember(dateString, currentTimezoneId) { TimeUtils.getFriendlyDate(dateString, currentTimezoneId) }
     var currentActualHoursDecimal by remember(actualMinutes) {
         mutableStateOf(actualMinutes / 60.0)
     }
+    var showReqHoursManualDialog by remember { mutableStateOf(false) }
+    var showActDurationManualDialog by remember { mutableStateOf(false) }
 
     Card(
         colors = CardDefaults.cardColors(
@@ -977,11 +1084,28 @@ fun AttendanceDetailsEditorCard(
                         fontSize = 13.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
-                    Text(
-                        text = "${requiredHours} giờ",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .clickable { showReqHoursManualDialog = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "${requiredHours} giờ",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Nhập tay",
+                            tint = activeTheme.primaryColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
                 Slider(
                     value = requiredHours.toFloat(),
@@ -1011,11 +1135,28 @@ fun AttendanceDetailsEditorCard(
                         fontSize = 13.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
-                    Text(
-                        text = displayActual,
-                        fontWeight = FontWeight.Bold,
-                        color = activeTheme.accentColor
-                    )
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .clickable { showActDurationManualDialog = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = displayActual,
+                            fontWeight = FontWeight.Bold,
+                            color = activeTheme.accentColor,
+                            fontSize = 14.sp
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Nhập tay",
+                            tint = activeTheme.accentColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
                 Slider(
                     value = currentActualHoursDecimal.toFloat(),
@@ -1030,6 +1171,29 @@ fun AttendanceDetailsEditorCard(
                         activeTrackColor = activeTheme.accentColor,
                         thumbColor = activeTheme.accentColor
                     )
+                )
+            }
+
+            if (showReqHoursManualDialog) {
+                CustomNumberInputDialog(
+                    title = "Nhập Số Giờ Làm Yêu Cầu",
+                    initialValue = requiredHours,
+                    onDismiss = { showReqHoursManualDialog = false },
+                    onValueConfirmed = {
+                        onRequiredHoursChange(it)
+                        showReqHoursManualDialog = false
+                    }
+                )
+            }
+
+            if (showActDurationManualDialog) {
+                CustomDurationInputDialog(
+                    initialMinutes = actualMinutes,
+                    onDismiss = { showActDurationManualDialog = false },
+                    onDurationConfirmed = {
+                        onActualMinutesChange(it)
+                        showActDurationManualDialog = false
+                    }
                 )
             }
 
@@ -1079,3 +1243,201 @@ fun AttendanceDetailsEditorCard(
         }
     }
 }
+
+@Composable
+fun CustomNumberInputDialog(
+    title: String,
+    initialValue: Double,
+    onDismiss: () -> Unit,
+    onValueConfirmed: (Double) -> Unit
+) {
+    var textValue by remember { mutableStateOf(initialValue.toString()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                OutlinedTextField(
+                    value = textValue,
+                    onValueChange = {
+                        textValue = it
+                        errorMessage = null
+                    },
+                    label = { Text("Số giờ (ví dụ: 8 hoặc 8.5)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("HỦY")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        onClick = {
+                            val doubleVal = textValue.toDoubleOrNull()
+                            if (doubleVal == null || doubleVal <= 0 || doubleVal > 24) {
+                                errorMessage = "Vui lòng nhập số giờ hợp lệ từ 0.5 đến 24"
+                            } else {
+                                onValueConfirmed(doubleVal)
+                            }
+                        }
+                    ) {
+                        Text("XÁC NHẬN")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomDurationInputDialog(
+    initialMinutes: Int,
+    onDismiss: () -> Unit,
+    onDurationConfirmed: (Int) -> Unit
+) {
+    val initialHours = initialMinutes / 60
+    val initialRemainingMins = initialMinutes % 60
+
+    var hoursStr by remember { mutableStateOf(initialHours.toString()) }
+    var minsStr by remember { mutableStateOf(initialRemainingMins.toString()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Nhập Thời Gian Đã Làm",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = hoursStr,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) hoursStr = it },
+                        label = { Text("Giờ làm") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = minsStr,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) minsStr = it },
+                        label = { Text("Phút") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("HỦY")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        onClick = {
+                            val hrs = hoursStr.toIntOrNull() ?: 0
+                            val mins = minsStr.toIntOrNull() ?: 0
+                            if (hrs < 0 || hrs > 24) {
+                                errorMessage = "Số giờ làm từ 0 đến 24"
+                                return@Button
+                            }
+                            if (mins < 0 || mins > 59) {
+                                errorMessage = "Số phút từ 0 đến 59"
+                                return@Button
+                            }
+                            val totalMins = hrs * 60 + mins
+                            if (totalMins <= 0 && hrs == 0 && mins == 0) {
+                                errorMessage = "Thời gian làm việc phải lớn hơn 0"
+                                return@Button
+                            }
+                            onDurationConfirmed(totalMins)
+                        }
+                    ) {
+                        Text("XÁC NHẬN")
+                    }
+                }
+            }
+        }
+    }
+}
+

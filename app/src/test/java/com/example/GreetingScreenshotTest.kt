@@ -25,7 +25,7 @@ class GreetingScreenshotTest {
   fun clock_card_screenshot() {
     composeTestRule.setContent { 
       MyApplicationTheme { 
-        LiveClockCard(activeTheme = AppBackgroundTheme.AURORA_NIGHT) 
+        LiveClockCard(activeTheme = AppBackgroundTheme.AURORA_NIGHT, timezoneId = "Asia/Ho_Chi_Minh") 
       } 
     }
 

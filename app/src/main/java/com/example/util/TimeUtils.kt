@@ -4,34 +4,44 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object TimeUtils {
-    private val dateFullFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    private val friendlyDateFormatter = SimpleDateFormat("EEEE, d 'Tháng' M, yyyy", Locale("vi", "VN"))
-    private val shortMonthDayFormatter = SimpleDateFormat("dd/MM", Locale.getDefault())
-
-    fun getCurrentDateString(): String {
+    
+    fun getCurrentDateString(timezoneId: String = "Asia/Ho_Chi_Minh"): String {
+        val dateFullFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        dateFullFormatter.timeZone = TimeZone.getTimeZone(timezoneId)
         return dateFullFormatter.format(Date())
     }
 
-    fun getFriendlyDate(dateString: String): String {
+    fun getFriendlyDate(dateString: String, timezoneId: String = "Asia/Ho_Chi_Minh"): String {
         return try {
+            val dateFullFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            dateFullFormatter.timeZone = TimeZone.getTimeZone(timezoneId)
             val date = dateFullFormatter.parse(dateString) ?: Date()
+            
+            val friendlyDateFormatter = SimpleDateFormat("EEEE, d 'Tháng' M, yyyy", Locale("vi", "VN"))
+            friendlyDateFormatter.timeZone = TimeZone.getTimeZone(timezoneId)
             friendlyDateFormatter.format(date)
         } catch (e: Exception) {
             dateString
         }
     }
 
-    fun formatShortMonthDay(dateString: String): String {
+    fun formatShortMonthDay(dateString: String, timezoneId: String = "Asia/Ho_Chi_Minh"): String {
         return try {
+            val dateFullFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            dateFullFormatter.timeZone = TimeZone.getTimeZone(timezoneId)
             val date = dateFullFormatter.parse(dateString) ?: Date()
+            
+            val shortMonthDayFormatter = SimpleDateFormat("dd/MM", Locale.getDefault())
+            shortMonthDayFormatter.timeZone = TimeZone.getTimeZone(timezoneId)
             shortMonthDayFormatter.format(date)
         } catch (e: Exception) {
             dateString
         }
     }
 
-    fun getCurrentTimeFormatted(): String {
+    fun getCurrentTimeFormatted(timezoneId: String = "Asia/Ho_Chi_Minh"): String {
         val parser = SimpleDateFormat("HH:mm", Locale.getDefault())
+        parser.timeZone = TimeZone.getTimeZone(timezoneId)
         return parser.format(Date())
     }
 
@@ -57,9 +67,13 @@ object TimeUtils {
     }
 
     // Generate a list of days in the current month surrounding today
-    fun getCalendarDaysList(): List<String> {
+    fun getCalendarDaysList(timezoneId: String = "Asia/Ho_Chi_Minh"): List<String> {
+        val dateFullFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val tz = TimeZone.getTimeZone(timezoneId)
+        dateFullFormatter.timeZone = tz
+        
         val daysList = mutableListOf<String>()
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(tz)
         
         // Go back 15 days and forward 15 days to give a robust historical and future view
         calendar.add(Calendar.DAY_OF_YEAR, -15)

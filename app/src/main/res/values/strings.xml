@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">Chấm Công Lịch</string>
+    <string name="title_settings">Cài đặt múi giờ quốc gia</string>
+    <string name="label_select_country">Chọn Quốc gia / Vùng lãnh thổ</string>
+    
+    <string name="country_vietnam">Việt Nam (ICT - UTC+7)</string>
+    <string name="country_usa">Mỹ (EST/EDT - UTC-5)</string>
+    <string name="country_japan">Nhật Bản (JST - UTC+9)</string>
+    <string name="country_korea">Hàn Quốc (KST - UTC+9)</string>
+    <string name="country_singapore">Singapore (SGT - UTC+8)</string>
+    <string name="country_uk">Anh Quốc (GMT/BST - UTC+0)</string>
+    <string name="country_germany">Đức (CET/CEST - UTC+1)</string>
+    <string name="country_france">Pháp (CET/CEST - UTC+1)</string>
+    <string name="country_australia">Úc (AEST/AEDT - UTC+10)</string>
 </resources>

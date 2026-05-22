@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.TimeRecord
 import com.example.data.TimeRecordRepository
+import com.example.data.CountrySetting
 import com.example.ui.theme.AppBackgroundTheme
 import com.example.ui.theme.ThemePreferences
 import com.example.util.TimeUtils
@@ -22,8 +23,19 @@ class TimeKeeperViewModel(
     private val _currentTheme = MutableStateFlow(themePreferences.getBackgroundTheme())
     val currentTheme: StateFlow<AppBackgroundTheme> = _currentTheme.asStateFlow()
 
+    // Country/Timezone state
+    private val _selectedCountryCode = MutableStateFlow(themePreferences.getSelectedCountryCode())
+    val selectedCountryCode: StateFlow<String> = _selectedCountryCode.asStateFlow()
+
+    val currentTimezoneId: String
+        get() = CountrySetting.getByCode(_selectedCountryCode.value).timezoneId
+
     // Date currently selected in the calendar
-    private val _selectedDate = MutableStateFlow(TimeUtils.getCurrentDateString())
+    private val _selectedDate = MutableStateFlow(
+        TimeUtils.getCurrentDateString(
+            CountrySetting.getByCode(themePreferences.getSelectedCountryCode()).timezoneId
+        )
+    )
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
     // List of all history records
@@ -43,8 +55,12 @@ class TimeKeeperViewModel(
             initialValue = null
         )
 
-    // Current record for "today" to drive home tracking state
-    val todayRecord: StateFlow<TimeRecord?> = repository.getRecordByDate(TimeUtils.getCurrentDateString())
+    // Current record for "today" to drive home tracking state, reacting to both timezone and repo updates
+    val todayRecord: StateFlow<TimeRecord?> = _selectedCountryCode
+        .flatMapLatest { code ->
+            val tz = CountrySetting.getByCode(code).timezoneId
+            repository.getRecordByDate(TimeUtils.getCurrentDateString(tz))
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -93,6 +109,15 @@ class TimeKeeperViewModel(
         _currentTheme.value = theme
     }
 
+    // Change selected country setting
+    fun selectCountry(code: String) {
+        themePreferences.setSelectedCountryCode(code)
+        _selectedCountryCode.value = code
+        // Update selected date to today in the chosen timezone
+        val tz = CountrySetting.getByCode(code).timezoneId
+        _selectedDate.value = TimeUtils.getCurrentDateString(tz)
+    }
+
     // Select calendar date
     fun selectDate(dateString: String) {
         _selectedDate.value = dateString
@@ -101,9 +126,11 @@ class TimeKeeperViewModel(
     // Move to next or previous date
     fun selectRelativeDate(days: Int) {
         try {
+            val tz = currentTimezoneId
             val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            format.timeZone = java.util.TimeZone.getTimeZone(tz)
             val date = format.parse(_selectedDate.value) ?: java.util.Date()
-            val cal = java.util.Calendar.getInstance()
+            val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone(tz))
             cal.time = date
             cal.add(java.util.Calendar.DAY_OF_YEAR, days)
             _selectedDate.value = format.format(cal.time)
@@ -113,8 +140,9 @@ class TimeKeeperViewModel(
     // Check IN (Vào ca)
     fun checkIn(requiredHours: Double = 8.0) {
         viewModelScope.launch {
-            val todayStr = TimeUtils.getCurrentDateString()
-            val currentTime = TimeUtils.getCurrentTimeFormatted()
+            val tz = currentTimezoneId
+            val todayStr = TimeUtils.getCurrentDateString(tz)
+            val currentTime = TimeUtils.getCurrentTimeFormatted(tz)
             val existing = repository.getRecordByDateDirect(todayStr)
 
             val updated = TimeRecord(
@@ -136,11 +164,12 @@ class TimeKeeperViewModel(
     // Check OUT (Ra ca)
     fun checkOut() {
         viewModelScope.launch {
-            val todayStr = TimeUtils.getCurrentDateString()
+            val tz = currentTimezoneId
+            val todayStr = TimeUtils.getCurrentDateString(tz)
             val existing = repository.getRecordByDateDirect(todayStr) ?: return@launch
             if (!existing.isTracking || existing.checkInTimestamp == null) return@launch
 
-            val checkoutTime = TimeUtils.getCurrentTimeFormatted()
+            val checkoutTime = TimeUtils.getCurrentTimeFormatted(tz)
             val elapsedMinutes = ((System.currentTimeMillis() - existing.checkInTimestamp) / 60000).toInt().coerceAtLeast(1)
 
             val updated = existing.copy(

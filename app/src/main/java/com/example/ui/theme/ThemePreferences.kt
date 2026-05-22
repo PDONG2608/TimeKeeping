@@ -79,4 +79,12 @@ class ThemePreferences(context: Context) {
     fun setBackgroundTheme(theme: AppBackgroundTheme) {
         prefs.edit().putString("bg_theme_id", theme.id).apply()
     }
+
+    fun getSelectedCountryCode(): String {
+        return prefs.getString("selected_country_code", "VN") ?: "VN"
+    }
+
+    fun setSelectedCountryCode(code: String) {
+        prefs.edit().putString("selected_country_code", code).apply()
+    }
 }
