@@ -1,0 +1,6 @@
+{
+  "name": "Chấm Công Lịch",
+  "description": "Ứng dụng chấm công, tính giờ làm việc, hiển thị giờ ra và quản lý lịch thông minh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
